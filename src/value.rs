@@ -46,18 +46,13 @@ use ff::{Field, PrimeField};
 use group::{Curve, Group, GroupEncoding};
 #[cfg(feature = "circuit")]
 use halo2_proofs::plonk::Assigned;
-use pasta_curves::{
-    arithmetic::{CurveAffine, CurveExt},
-    pallas,
-};
+use pasta_curves::{arithmetic::CurveAffine, pallas};
 use rand::Rng;
 
 use subtle::CtOption;
 
 use crate::{
-    constants::fixed_bases::{
-        VALUE_COMMITMENT_PERSONALIZATION, VALUE_COMMITMENT_R_BYTES, VALUE_COMMITMENT_V_BYTES,
-    },
+    constants::fixed_bases::{value_commit_r, value_commit_v},
     primitives::redpallas::{self, Binding},
 };
 
@@ -357,9 +352,8 @@ impl ValueCommitment {
     /// [concretehomomorphiccommit]: https://zips.z.cash/protocol/nu5.pdf#concretehomomorphiccommit
     #[allow(non_snake_case)]
     pub fn derive(value: ValueSum, rcv: ValueCommitTrapdoor) -> Self {
-        let hasher = pallas::Point::hash_to_curve(VALUE_COMMITMENT_PERSONALIZATION);
-        let V = hasher(&VALUE_COMMITMENT_V_BYTES);
-        let R = hasher(&VALUE_COMMITMENT_R_BYTES);
+        let V = value_commit_v::generator();
+        let R = value_commit_r::generator();
         let abs_value = u64::try_from(value.0.abs()).expect("value must be in valid range");
 
         let value = if value.0.is_negative() {
@@ -369,6 +363,35 @@ impl ValueCommitment {
         };
 
         ValueCommitment(V * value + R * rcv.0)
+    }
+
+    /// Derives the commitment to a public value with a zero trapdoor.
+    ///
+    /// This equals `derive(value, ValueCommitTrapdoor::zero())`.
+    ///
+    /// # Security
+    ///
+    /// This runs in variable time with respect to `value`. **`value` must be public.**
+    /// Use [`ValueCommitment::derive`] for a note's value.
+    pub fn derive_public(value: ValueSum) -> Self {
+        let magnitude = u64::try_from(value.0.abs()).expect("value must be in valid range");
+        let generator = value_commit_v::generator();
+        let commitment = (0..u64::BITS - magnitude.leading_zeros()).rev().fold(
+            pallas::Point::identity(),
+            |acc, bit| {
+                let acc = acc.double();
+                if (magnitude >> bit) & 1 == 1 {
+                    acc + generator
+                } else {
+                    acc
+                }
+            },
+        );
+        ValueCommitment(if value.0.is_negative() {
+            -commitment
+        } else {
+            commitment
+        })
     }
 
     pub(crate) fn into_bvk(self) -> redpallas::VerificationKey<Binding> {
@@ -480,7 +503,58 @@ mod tests {
     };
     use crate::primitives::redpallas;
 
+    // Preserve the original hash-to-curve arithmetic as a differential oracle.
+    fn original_derive(value: ValueSum, rcv: ValueCommitTrapdoor) -> ValueCommitment {
+        use pasta_curves::{arithmetic::CurveExt, pallas};
+        use crate::constants::fixed_bases::{
+            VALUE_COMMITMENT_PERSONALIZATION, VALUE_COMMITMENT_R_BYTES, VALUE_COMMITMENT_V_BYTES,
+        };
+
+        let hasher = pallas::Point::hash_to_curve(VALUE_COMMITMENT_PERSONALIZATION);
+        let v = hasher(&VALUE_COMMITMENT_V_BYTES);
+        let r = hasher(&VALUE_COMMITMENT_R_BYTES);
+        let magnitude = u64::try_from(value.0.abs()).expect("value must be in valid range");
+        let scalar = pallas::Scalar::from(magnitude);
+        let scalar = if value.0.is_negative() { -scalar } else { scalar };
+        ValueCommitment(v * scalar + r * rcv.0)
+    }
+
+    #[test]
+    fn public_balance_matches_original_arithmetic() {
+        use pasta_curves::pallas;
+
+        for value in [
+            -(i128::from(u64::MAX)), i128::from(i64::MIN), -1, 0, 1,
+            i128::from(i64::MAX), i128::from(u64::MAX),
+        ] {
+            let value = ValueSum(value);
+            let original = original_derive(value, ValueCommitTrapdoor::zero());
+            assert_eq!(ValueCommitment::derive_public(value).to_bytes(), original.to_bytes());
+            for scalar in [pallas::Scalar::zero(), pallas::Scalar::one(), -pallas::Scalar::one()] {
+                assert_eq!(
+                    ValueCommitment::derive(value, ValueCommitTrapdoor(scalar)).to_bytes(),
+                    original_derive(value, ValueCommitTrapdoor(scalar)).to_bytes(),
+                );
+            }
+        }
+    }
+
     proptest! {
+        #[test]
+        fn public_balance_matches_original_for_arbitrary_values(
+            value in super::testing::arb_value_sum(),
+            rcv in arb_trapdoor(),
+        ) {
+            prop_assert_eq!(
+                ValueCommitment::derive_public(value).to_bytes(),
+                original_derive(value, ValueCommitTrapdoor::zero()).to_bytes(),
+            );
+            prop_assert_eq!(
+                ValueCommitment::derive(value, rcv.clone()).to_bytes(),
+                original_derive(value, rcv).to_bytes(),
+            );
+        }
+
         #[test]
         fn bsk_consistent_with_bvk(
             values in (1usize..10).prop_flat_map(|n_values|
