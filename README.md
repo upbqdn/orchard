@@ -2,6 +2,17 @@
 
 Requires Rust 1.88+.
 
+## Benchmark-only crypto ports
+
+This fork ports public value-balance commitments and decoded RedPallas
+key reuse from [Zakura Common 5.2.0](https://github.com/zakura-core/common/tree/834fa87c9517822c5f8153e05393bf6a01827e80/crates/orchard).
+`ValueCommitment::derive_public` is variable-time and must only receive public
+values; note commitments continue to use `derive`. Binding keys retain their
+computed points, and signature batches and public-instance encoding reuse
+already validated spend keys. The `multicore` feature also enables parallel
+RedPallas batch decoding in the ported RedDSA dependency.
+
+
 ## Documentation
 
 - [The Orchard Book](https://zcash.github.io/orchard/)

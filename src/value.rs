@@ -395,8 +395,7 @@ impl ValueCommitment {
     }
 
     pub(crate) fn into_bvk(self) -> redpallas::VerificationKey<Binding> {
-        // TODO: impl From<pallas::Point> for redpallas::VerificationKey.
-        self.0.to_bytes().try_into().unwrap()
+        redpallas::VerificationKey::from_point(self.0)
     }
 
     /// Deserialize a value commitment from its byte representation
@@ -505,17 +504,21 @@ mod tests {
 
     // Preserve the original hash-to-curve arithmetic as a differential oracle.
     fn original_derive(value: ValueSum, rcv: ValueCommitTrapdoor) -> ValueCommitment {
-        use pasta_curves::{arithmetic::CurveExt, pallas};
         use crate::constants::fixed_bases::{
             VALUE_COMMITMENT_PERSONALIZATION, VALUE_COMMITMENT_R_BYTES, VALUE_COMMITMENT_V_BYTES,
         };
+        use pasta_curves::{arithmetic::CurveExt, pallas};
 
         let hasher = pallas::Point::hash_to_curve(VALUE_COMMITMENT_PERSONALIZATION);
         let v = hasher(&VALUE_COMMITMENT_V_BYTES);
         let r = hasher(&VALUE_COMMITMENT_R_BYTES);
         let magnitude = u64::try_from(value.0.abs()).expect("value must be in valid range");
         let scalar = pallas::Scalar::from(magnitude);
-        let scalar = if value.0.is_negative() { -scalar } else { scalar };
+        let scalar = if value.0.is_negative() {
+            -scalar
+        } else {
+            scalar
+        };
         ValueCommitment(v * scalar + r * rcv.0)
     }
 
@@ -524,13 +527,25 @@ mod tests {
         use pasta_curves::pallas;
 
         for value in [
-            -(i128::from(u64::MAX)), i128::from(i64::MIN), -1, 0, 1,
-            i128::from(i64::MAX), i128::from(u64::MAX),
+            -(i128::from(u64::MAX)),
+            i128::from(i64::MIN),
+            -1,
+            0,
+            1,
+            i128::from(i64::MAX),
+            i128::from(u64::MAX),
         ] {
             let value = ValueSum(value);
             let original = original_derive(value, ValueCommitTrapdoor::zero());
-            assert_eq!(ValueCommitment::derive_public(value).to_bytes(), original.to_bytes());
-            for scalar in [pallas::Scalar::zero(), pallas::Scalar::one(), -pallas::Scalar::one()] {
+            assert_eq!(
+                ValueCommitment::derive_public(value).to_bytes(),
+                original.to_bytes()
+            );
+            for scalar in [
+                pallas::Scalar::zero(),
+                pallas::Scalar::one(),
+                -pallas::Scalar::one(),
+            ] {
                 assert_eq!(
                     ValueCommitment::derive(value, ValueCommitTrapdoor(scalar)).to_bytes(),
                     original_derive(value, ValueCommitTrapdoor(scalar)).to_bytes(),

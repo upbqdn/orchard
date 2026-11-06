@@ -2,7 +2,7 @@
 
 use alloc::vec::Vec;
 
-use group::{Curve, GroupEncoding};
+use group::Curve;
 use halo2_proofs::{
     circuit::{floor_planner, Layouter, Value},
     plonk::{
@@ -1276,8 +1276,9 @@ impl Instance {
         instance[CV_NET_Y] = self.cv_net.y();
         instance[NF_OLD] = self.nf_old.inner();
 
-        let rk = pallas::Point::from_bytes(&self.rk.clone().into())
-            .expect("the cached byte encoding of a VerificationKey<_> is canonical")
+        let rk = self
+            .rk
+            .point()
             .to_affine()
             .coordinates()
             .expect("rk is non-identity by construction");
@@ -1644,6 +1645,32 @@ mod tests {
             instance.to_halo2_instance()[0][super::DISABLE_CROSS_ADDRESS],
             vesta::Scalar::one()
         );
+    }
+
+    #[test]
+    fn retained_instance_key_matches_original_decoding() {
+        use group::{Curve, GroupEncoding};
+        use pasta_curves::arithmetic::CurveAffine;
+
+        let (_, mut instance) =
+            generate_circuit_instance(UnwrapErr(SysRng), OrchardCircuitVersion::FixedPostNu6_2);
+        for value in [-1, 0, 1, i64::MIN, i64::MAX] {
+            instance.cv_net = ValueCommitment::derive(
+                crate::value::ValueSum::from_raw(value),
+                ValueCommitTrapdoor::zero(),
+            );
+            let encoded: [u8; 32] = (&instance.rk).into();
+            let original = pallas::Point::from_bytes(&encoded)
+                .unwrap()
+                .to_affine()
+                .coordinates()
+                .unwrap();
+            let instance_rows = instance.to_halo2_instance()[0];
+            assert_eq!(instance_rows[super::RK_X], *original.x());
+            assert_eq!(instance_rows[super::RK_Y], *original.y());
+            assert_eq!(instance_rows[super::CV_NET_X], instance.cv_net.x());
+            assert_eq!(instance_rows[super::CV_NET_Y], instance.cv_net.y());
+        }
     }
 
     #[test]

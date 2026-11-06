@@ -98,7 +98,7 @@ std = ["corez/std", "group/wnaf-memuse", "reddsa/std"]
 circuit = ["dep:halo2_gadgets", "dep:halo2_proofs", "dep:tracing", "std"]
 unstable-frost = []
 unstable-voting-circuits = []
-multicore = ["halo2_proofs?/multicore"]
+multicore = ["halo2_proofs?/multicore", "reddsa/multicore"]
 dev-graph = ["halo2_proofs?/dev-graph", "image", "plotters"]
 verifier-fingerprint = ["circuit", "halo2_proofs/unstable-verifier-fingerprint"]
 test-dependencies = ["proptest", "rand/std", "rand/std_rng"]
@@ -128,3 +128,10 @@ debug = true
 
 [profile.bench]
 debug = true
+
+[patch.crates-io]
+reddsa = { git = "https://github.com/ZcashFoundation/reddsa", rev = "1b2cebe86f1efec59353355c8dabcf4de3bbe6b4" }
+pasta_curves = { git = "https://github.com/upbqdn/pasta_curves", rev = "e97df3240588990f5a5dff11f632a31125ac72b9" }
+halo2_proofs = { git = "https://github.com/upbqdn/halo2", rev = "f6d048d817e70be9179e0365210ab7990dcfb722" }
+halo2_gadgets = { git = "https://github.com/upbqdn/halo2", rev = "f6d048d817e70be9179e0365210ab7990dcfb722" }
+halo2_poseidon = { git = "https://github.com/upbqdn/halo2", rev = "f6d048d817e70be9179e0365210ab7990dcfb722" }
