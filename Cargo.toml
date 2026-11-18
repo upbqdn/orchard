@@ -35,7 +35,7 @@ halo2_proofs = { version = "0.4", optional = true, default-features = false, fea
 pasta_curves = { version = "0.6.3", features = ["glv"] }
 rayon = { version = "1", optional = true }
 poseidon = { package = "halo2_poseidon", version = "0.2" }
-reddsa = { version = "0.6", default-features = false }
+reddsa = { git = "https://github.com/ZcashFoundation/reddsa", rev = "9d272a0f08def464067673cf92edbe1a0d01986e", default-features = false }
 sinsemilla = "0.2"
 
 # CSPRNG
@@ -123,6 +123,9 @@ required-features = ["circuit"]
 name = "orchard_k11_prover"
 harness = false
 required-features = ["circuit"]
+
+[patch.crates-io]
+pasta_curves = { git = "https://github.com/upbqdn/pasta_curves", rev = "67d1040a18798101541c66f8a012b57e770e3d44" }
 
 [profile.release]
 debug = true
