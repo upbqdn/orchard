@@ -205,9 +205,9 @@ fn identity_points_and_boundary_balances_match_original_inputs() {
 
     for balance in [0, 1, -1, i64::MAX, i64::MAX - 1, i64::MIN, i64::MIN + 1] {
         queued.value_balance = balance;
-        let original =
-            (identity.clone() - ValueCommitment::derive_public(ValueSum::from_raw(balance)))
-                .into_bvk();
+        let original = (identity.clone()
+            - ValueCommitment::derive_public(ValueSum::from_raw(balance)))
+        .into_bvk();
         let normalized = redpallas::VerificationKey::<redpallas::Binding>::from_affine(
             queued.binding_point().to_affine(),
         );
