@@ -2,9 +2,9 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Not as _;
 
-use group::{Group as _, GroupEncoding as _};
+use group::{CurveAffine as _, Group as _, GroupEncoding as _};
 use memuse::DynamicUsage;
-use pasta_curves::pallas;
+use pasta_curves::{arithmetic::CurveAffine as _, pallas};
 use subtle::CtOption;
 
 use crate::{
@@ -113,19 +113,20 @@ impl<T> Action<T> {
 
     /// Constructs a sequence of actions, decompressing their public `cv` and `epk` points
     /// together. The first invalid action is reported in its original wire order.
-    pub fn from_encoded_parts(parts: Vec<EncodedAction<T>>) -> Result<Vec<Self>, EncodedActionError> {
+    pub fn from_encoded_parts(
+        parts: Vec<EncodedAction<T>>,
+    ) -> Result<Vec<Self>, EncodedActionError> {
         let encodings: Vec<_> = parts
             .iter()
             .flat_map(|part| [part.cv_net, part.encrypted_note.epk_bytes])
             .collect();
-        let points = pallas::Affine::batch_from_bytes(&encodings);
+        let points = pallas::Affine::batch_decode_vartime(&encodings);
         parts
             .into_iter()
             .zip(points.chunks_exact(2))
             .map(|(part, pair)| {
-                let cv_net = ValueCommitment::from_decoded(
-                    pair[0].ok_or(EncodedActionError::InvalidCv)?,
-                );
+                let cv_net =
+                    ValueCommitment::from_decoded(pair[0].ok_or(EncodedActionError::InvalidCv)?);
                 if part.rk.is_identity() {
                     return Err(EncodedActionError::InvalidAction(
                         ActionFromPartsError::IdentityRk,
