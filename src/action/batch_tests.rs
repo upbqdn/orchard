@@ -42,7 +42,7 @@ fn batch_matches_individual_construction_and_reports_first_error_in_action_order
 
     for size in [1, 2, 3, 4, 5, 8, 9, 17] {
         let inputs: Vec<_> = cases.iter().copied().cycle().take(size).collect();
-        let expected: Vec<_> = inputs
+        let expected: Result<Vec<_>, EncodedActionError> = inputs
             .iter()
             .map(|&(cv, rk, epk)| {
                 let cv_net = Option::<ValueCommitment>::from(ValueCommitment::from_bytes(&cv))
@@ -55,20 +55,31 @@ fn batch_matches_individual_construction_and_reports_first_error_in_action_order
         let actual = Action::from_encoded_parts(
             inputs.iter().map(|&(cv, rk, epk)| encoded(cv, rk, epk)).collect(),
         );
-        for (actual, expected) in actual.iter().zip(&expected) {
-            assert_eq!(actual.as_ref().err(), expected.as_ref().err());
-            if let (Ok(actual), Ok(expected)) = (actual, expected) {
+        assert_eq!(actual.as_ref().err(), expected.as_ref().err());
+        if let (Ok(actual), Ok(expected)) = (actual, expected) {
+            for (actual, expected) in actual.iter().zip(&expected) {
                 assert_eq!(actual.cv_net().to_bytes(), expected.cv_net().to_bytes());
                 assert_eq!(actual.encrypted_note().epk_bytes, expected.encrypted_note().epk_bytes);
             }
         }
     }
-    let errors = Action::from_encoded_parts(vec![
-        encoded(bad, identity, bad),
-        encoded(valid, identity, bad),
-        encoded(valid, valid, bad),
-    ]);
-    assert!(matches!(errors[0], Err(EncodedActionError::InvalidCv)));
-    assert!(matches!(errors[1], Err(EncodedActionError::InvalidAction(ActionFromPartsError::IdentityRk))));
-    assert!(matches!(errors[2], Err(EncodedActionError::InvalidAction(ActionFromPartsError::InvalidEpk))));
+    for (inputs, expected) in [
+        (
+            vec![(bad, identity, bad), (valid, valid, valid)],
+            EncodedActionError::InvalidCv,
+        ),
+        (
+            vec![(valid, identity, bad)],
+            EncodedActionError::InvalidAction(ActionFromPartsError::IdentityRk),
+        ),
+        (
+            vec![(valid, valid, bad)],
+            EncodedActionError::InvalidAction(ActionFromPartsError::InvalidEpk),
+        ),
+    ] {
+        let actual = Action::from_encoded_parts(
+            inputs.into_iter().map(|(cv, rk, epk)| encoded(cv, rk, epk)).collect(),
+        );
+        assert_eq!(actual.unwrap_err(), expected);
+    }
 }

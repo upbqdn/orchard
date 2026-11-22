@@ -112,9 +112,8 @@ impl<T> Action<T> {
     }
 
     /// Constructs a sequence of actions, decompressing their public `cv` and `epk` points
-    /// together. Each result corresponds to the input at the same index; callers can report
-    /// errors in their original wire order.
-    pub fn from_encoded_parts(parts: Vec<EncodedAction<T>>) -> Vec<Result<Self, EncodedActionError>> {
+    /// together. The first invalid action is reported in its original wire order.
+    pub fn from_encoded_parts(parts: Vec<EncodedAction<T>>) -> Result<Vec<Self>, EncodedActionError> {
         let encodings: Vec<_> = parts
             .iter()
             .flat_map(|part| [part.cv_net, part.encrypted_note.epk_bytes])
