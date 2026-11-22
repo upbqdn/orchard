@@ -408,6 +408,11 @@ impl ValueCommitment {
         pallas::Point::from_bytes(bytes).map(ValueCommitment)
     }
 
+    /// Wraps a previously decoded public Pallas point as a value commitment.
+    pub(crate) fn from_decoded(point: pallas::Affine) -> Self {
+        ValueCommitment(point.into())
+    }
+
     /// Serialize this value commitment to its canonical byte representation.
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()

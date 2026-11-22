@@ -7,6 +7,10 @@ and this project adheres to Rust's notion of
 
 ## [Unreleased]
 
+### Added
+- `Action::from_encoded_parts` validates and decompresses public value commitments
+  and ephemeral keys together, preserving individual action errors.
+
 ### Changed
 - `Bundle::binding_validating_key` derives the value balance commitment from the
   public value balance in variable time.
