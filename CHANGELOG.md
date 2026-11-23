@@ -7,6 +7,14 @@ and this project adheres to Rust's notion of
 
 ## [Unreleased]
 
+### Added
+- `orchard::Action::from_encoded_parts` validates Orchard action value commitments and
+  ephemeral keys together with the original first-invalid-action order.
+- `orchard::EncodedAction` and `orchard::EncodedAction::from_parts` collect compressed
+  commitments and the other action fields before batch validation.
+- `orchard::EncodedActionError` reports the first invalid action in a batch.
+- `orchard::value::EncodedValueCommitment` reads compressed commitments for batch validation.
+
 ### Changed
 - `Bundle::binding_validating_key` derives the value balance commitment from the
   public value balance in variable time.
@@ -48,7 +56,7 @@ and this project adheres to Rust's notion of
 ### Changed
 - MSRV is now 1.88
 - Migrated to `ff 0.14`, `group 0.14`, `pasta_curves 0.6`, `rand 0.10`,
-  `rand_core 0.10`, `reddsa 0.6`, `zcash_note_encryption 0.5`, `zip32 0.3`, 
+  `rand_core 0.10`, `reddsa 0.6`, `zcash_note_encryption 0.5`, `zip32 0.3`,
   `halo2_proofs 0.4`, `incrementalmerkletree 0.9`, `shardtree 0.8`.
 - Under the `unstable-voting-circuits` feature: migrated to `halo2_gadgets 0.6`.
 - Public APIs that took an `RngCore` (with or without `CryptoRng`) now take a
