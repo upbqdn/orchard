@@ -125,7 +125,7 @@ harness = false
 required-features = ["circuit"]
 
 [patch.crates-io]
-pasta_curves = { git = "https://github.com/upbqdn/pasta_curves", rev = "67d1040a18798101541c66f8a012b57e770e3d44" }
+pasta_curves = { git = "https://github.com/upbqdn/pasta_curves", rev = "62f83c889634e10a6f0c34cf3e69d0e2f4e05b38" }
 
 [profile.release]
 debug = true
