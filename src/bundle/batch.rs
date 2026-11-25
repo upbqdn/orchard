@@ -1,9 +1,8 @@
 use alloc::vec::Vec;
 use core::fmt;
 
-use group::Curve;
 use halo2_proofs::plonk;
-use pasta_curves::{pallas, vesta};
+use pasta_curves::{arithmetic::CurveExt as _, pallas, vesta};
 use rand::{CryptoRng, Rng};
 
 use tracing::debug;
@@ -147,6 +146,7 @@ impl<'a> BatchValidator<'a> {
         }
 
         // Compute the binding points independently, then normalize all public points together.
+        // The points are public, so the variable-time normalization (identical output) is safe.
         let binding_points = map_bundles(self.bundles.iter().collect(), |bundle: &QueuedBundle| {
             bundle.binding_point()
         });
@@ -166,7 +166,7 @@ impl<'a> BatchValidator<'a> {
             }
         }
         let mut affine = vec![pallas::Affine::default(); points.len()];
-        pallas::Point::batch_normalize(&points, &mut affine);
+        pallas::Point::batch_normalize_vartime(&points, &mut affine);
 
         let prepared = map_bundles(
             self.bundles.into_iter().zip(starts).collect(),
