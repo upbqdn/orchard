@@ -351,8 +351,7 @@ impl<'a> Sum<&'a ValueCommitment> for ValueCommitment {
 }
 
 impl ValueCommitment {
-    /// Returns the point for joint normalization of batch verification inputs.
-    #[cfg(feature = "circuit")]
+    /// Returns the public point for batch normalization during verification and hashing.
     pub(crate) fn point(&self) -> pallas::Point {
         self.0
     }
