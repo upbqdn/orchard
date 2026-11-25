@@ -1,11 +1,18 @@
 //! Utility functions for computing bundle commitments
 
+use alloc::vec::Vec;
+
 use blake2b_simd::{Hash as Blake2bHash, Params, State};
+use group::{Curve as _, GroupEncoding as _};
+use pasta_curves::pallas;
 
 use crate::{
     bundle::{Authorization, Authorized, Bundle, CommitmentError, TxVersion},
     ValuePool,
 };
+
+#[cfg(test)]
+mod tests;
 
 const ZCASH_ORCHARD_V5_HASH_PERSONALIZATION: &[u8; 16] = b"ZTxIdOrchardHash";
 const ZCASH_ORCHARD_V6_HASH_PERSONALIZATION: &[u8; 16] = b"ZTxIdOrchardH_v6";
@@ -144,7 +151,16 @@ pub(crate) fn hash_bundle_txid_data<A: Authorization, V: Copy + Into<i64>>(
     let mut mh = hasher(personalizations.actions_memos);
     let mut nh = hasher(personalizations.actions_noncompact);
 
-    for action in bundle.actions().iter() {
+    // Builder commitments can have secret-dependent coordinates; normalize in constant time.
+    let points: Vec<_> = bundle
+        .actions()
+        .iter()
+        .map(|action| action.cv_net().point())
+        .collect();
+    let mut affine = vec![pallas::Affine::default(); points.len()];
+    pallas::Point::batch_normalize(&points, &mut affine);
+
+    for (action, cv_net) in bundle.actions().iter().zip(affine) {
         ch.update(&action.nullifier().to_bytes());
         ch.update(&action.cmx().to_bytes());
         ch.update(&action.encrypted_note().epk_bytes);
@@ -152,7 +168,7 @@ pub(crate) fn hash_bundle_txid_data<A: Authorization, V: Copy + Into<i64>>(
 
         mh.update(&action.encrypted_note().enc_ciphertext.0[52..564]);
 
-        nh.update(&action.cv_net().to_bytes());
+        nh.update(&cv_net.to_bytes());
         nh.update(&<[u8; 32]>::from(action.rk()));
         nh.update(&action.encrypted_note().enc_ciphertext.0[564..]);
         nh.update(&action.encrypted_note().out_ciphertext);
